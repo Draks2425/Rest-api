@@ -1,6 +1,27 @@
-@FirstAPI_HostAddress = http://localhost:5191
+@rootURL = http://localhost:5191
 
-GET {{FirstAPI_HostAddress}}/weatherforecast/
+GET {{rootURL}}/weatherforecast/
 Accept: application/json
 
 ###
+GET {{rootURL}}/api/books
+Accept: application/json
+
+###
+GET {{rootURL}}/api/books/1
+Accept: application/json
+
+###
+POST {{rootURL}}/api/books
+Content-Type: application/json
+{  "title": "Book of Books",
+  "author": "Draks",
+  "yearPublished": 2025}
+
+###
+PUT {{rootURL}}/api/books/4
+Content-Type: application/json
+{  "id": 1,
+  "title": "1984",
+  "author": "Me",
+  "yearPublished": 1949}
