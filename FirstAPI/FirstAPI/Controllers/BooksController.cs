@@ -1,8 +1,6 @@
-﻿using FirstAPI.Data;
-using FirstAPI.Models;
-using Microsoft.AspNetCore.Http;
+﻿using FirstAPI.Models;
+using FirstAPI.Repositories; // We need to reference the Repositories namespace
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace FirstAPI.Controllers
 {
@@ -10,75 +8,89 @@ namespace FirstAPI.Controllers
     [ApiController]
     public class BooksController : ControllerBase
     {
-        //static private List<Book> books = new List<Book>
-        //{
-        //    new Book { Id = 1, Title = "1984", Author = "George Orwell", YearPublished = 1949 },
-        //    new Book { Id = 2, Title = "To Kill a Mockingbird", Author = "Harper Lee", YearPublished = 1960 },
-        //    new Book { Id = 3, Title = "The Great Gatsby", Author = "F. Scott Fitzgerald", YearPublished = 1925 },
-        //    new Book { Id = 4, Title = "Pride and Prejudice", Author = "Jane Austen", YearPublished = 1813 },
-        //    new Book { Id = 5, Title = "The Catcher in the Rye", Author = "J.D. Salinger", YearPublished = 1951 }
-        //};
-        private readonly FirstAPIContext _context;
-        public BooksController(FirstAPIContext context)
+        // Instead of DbContext, we now depend on the Interface
+        private readonly IBookRepository _bookRepository;
+
+        // Constructor Injection: Asking for IBookRepository
+        public BooksController(IBookRepository bookRepository)
         {
-            _context = context;
+            _bookRepository = bookRepository;
         }
+
         [HttpGet]
-        public async Task<ActionResult<List<Book>>> GetBooks()
+        public async Task<ActionResult<IEnumerable<Book>>> GetBooks()
         {
-            return Ok(await _context.Books.ToListAsync());
+            // Using the repository to fetch data
+            var books = await _bookRepository.Get();
+            return Ok(books);
         }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<Book>> GetBookById(int id)
         {
-            var book = await _context.Books.FindAsync(id);
+            var book = await _bookRepository.GetById(id);
+
             if (book == null)
             {
                 return NotFound();
             }
             return Ok(book);
         }
+
         [HttpPost]
         public async Task<ActionResult<Book>> AddBook(Book newBook)
         {
-            if (newBook == null /*|| string.IsNullOrEmpty(newBook.Title) || string.IsNullOrEmpty(newBook.Author) || newBook.YearPublished <= 0*/)
+            if (newBook == null)
             {
                 return BadRequest("Invalid book data.");
             }
-            //newBook.Id = _context.Books.Max(b => b.Id) + 1;
-            _context.Books.Add(newBook);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetBookById), new { id = newBook.Id }, newBook);
+
+            // The repository handles the adding logic
+            var createdBook = await _bookRepository.Add(newBook);
+
+            return CreatedAtAction(nameof(GetBookById), new { id = createdBook.Id }, createdBook);
         }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBook(int id, Book updatedBook)
         {
-            var book = await _context.Books.FindAsync(id);
-            if (book == null)
+            // 1. Fetch the existing book using repository
+            var existingBook = await _bookRepository.GetById(id);
+
+            if (existingBook == null)
             {
                 return NotFound();
             }
+
+            // 2. Validate input
             if (updatedBook == null || string.IsNullOrEmpty(updatedBook.Title) || string.IsNullOrEmpty(updatedBook.Author) || updatedBook.YearPublished <= 0)
             {
                 return BadRequest("Invalid book data.");
             }
-            book.Title = updatedBook.Title;
-            book.Author = updatedBook.Author;
-            book.YearPublished = updatedBook.YearPublished;
 
-            await _context.SaveChangesAsync();
+            // 3. Map the changes (update properties of the existing book)
+            existingBook.Title = updatedBook.Title;
+            existingBook.Author = updatedBook.Author;
+            existingBook.YearPublished = updatedBook.YearPublished;
+
+            // 4. Save changes using repository
+            await _bookRepository.Update(existingBook);
+
             return NoContent();
         }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBook(int id)
         {
-            var book = await _context.Books.FindAsync(id);
+            // Check if exists
+            var book = await _bookRepository.GetById(id);
             if (book == null)
             {
                 return NotFound();
             }
-            _context.Books.Remove(book);
-            await _context.SaveChangesAsync();
+
+            // Delete via repository
+            await _bookRepository.Delete(id);
             return NoContent();
         }
     }
